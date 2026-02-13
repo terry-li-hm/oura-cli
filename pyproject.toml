@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oura-cli"
+version = "0.1.0"
+description = "Unofficial CLI for Oura Ring — sleep, readiness, and activity scores from your terminal."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Terry Li", email = "terry.li.hm@gmail.com" }]
+keywords = ["oura", "oura-ring", "health", "sleep", "cli"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/terry-li-hm/oura-cli"
+Repository = "https://github.com/terry-li-hm/oura-cli"
+
+[project.scripts]
+oura = "oura_cli:main"

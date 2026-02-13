@@ -1,0 +1,13 @@
+{
+  "name": "oura-cli",
+  "version": "0.1.0",
+  "description": "Unofficial CLI for Oura Ring — sleep, readiness, and activity scores from your terminal.",
+  "keywords": ["oura", "oura-ring", "health", "sleep", "cli"],
+  "author": "Terry Li <terry.li.hm@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/terry-li-hm/oura-cli"
+  },
+  "homepage": "https://github.com/terry-li-hm/oura-cli"
+}
