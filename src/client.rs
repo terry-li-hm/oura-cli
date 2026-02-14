@@ -50,6 +50,32 @@ impl OuraClient {
         Ok(body.data)
     }
 
+    fn fetch_range<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        start: &str,
+        end: &str,
+    ) -> Result<Vec<T>> {
+        let end_plus = next_day(end)?;
+        let url = format!("https://api.ouraring.com/v2/usercollection/{endpoint}");
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.token)
+            .query(&[("start_date", start), ("end_date", &end_plus)])
+            .send()
+            .context("Failed to reach Oura API")?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().unwrap_or_default();
+            bail!("Oura API returned {status}: {body}");
+        }
+
+        let body: ApiResponse<T> = resp.json().context("Failed to parse API response")?;
+        Ok(body.data)
+    }
+
     pub fn daily_sleep(&self, date: &str) -> Result<Vec<DailySleep>> {
         self.fetch("daily_sleep", date)
     }
@@ -68,6 +94,18 @@ impl OuraClient {
 
     pub fn daily_stress(&self, date: &str) -> Result<Vec<DailyStress>> {
         self.fetch("daily_stress", date)
+    }
+
+    pub fn daily_sleep_range(&self, start: &str, end: &str) -> Result<Vec<DailySleep>> {
+        self.fetch_range("daily_sleep", start, end)
+    }
+
+    pub fn daily_readiness_range(&self, start: &str, end: &str) -> Result<Vec<DailyReadiness>> {
+        self.fetch_range("daily_readiness", start, end)
+    }
+
+    pub fn daily_activity_range(&self, start: &str, end: &str) -> Result<Vec<DailyActivity>> {
+        self.fetch_range("daily_activity", start, end)
     }
 
     pub fn raw(&self, endpoint: &str, date: &str) -> Result<serde_json::Value> {

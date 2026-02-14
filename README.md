@@ -18,6 +18,7 @@ oura readiness [DATE]         # readiness score + contributors
 oura activity [DATE]          # steps, calories, movement
 oura hrv [DATE]               # heart rate variability from sleep
 oura stress [DATE]            # daily stress summary
+oura trend [-d DAYS]          # score trend over last N days (default: 7)
 oura json <ENDPOINT> [DATE]   # raw JSON for any API endpoint
 ```
 

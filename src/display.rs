@@ -253,6 +253,81 @@ pub fn display_stress(record: Option<&DailyStress>) {
     }
 }
 
+pub fn display_trend(
+    days: &[String],
+    sleep: &[crate::models::DailySleep],
+    readiness: &[crate::models::DailyReadiness],
+    activity: &[crate::models::DailyActivity],
+) {
+    use std::collections::HashMap;
+
+    let sleep_map: HashMap<&str, Option<i64>> =
+        sleep.iter().map(|s| (s.day.as_str(), s.score)).collect();
+    let readiness_map: HashMap<&str, Option<i64>> =
+        readiness.iter().map(|r| (r.day.as_str(), r.score)).collect();
+    let activity_map: HashMap<&str, Option<i64>> =
+        activity.iter().map(|a| (a.day.as_str(), a.score)).collect();
+
+    println!(
+        "  {}",
+        format!("{:<12}{:>7}{:>11}{:>10}", "Date", "Sleep", "Readiness", "Activity").dimmed()
+    );
+
+    let mut sleep_sum: i64 = 0;
+    let mut sleep_count: i64 = 0;
+    let mut readiness_sum: i64 = 0;
+    let mut readiness_count: i64 = 0;
+    let mut activity_sum: i64 = 0;
+    let mut activity_count: i64 = 0;
+
+    for day in days {
+        let s = sleep_map.get(day.as_str()).copied().flatten();
+        let r = readiness_map.get(day.as_str()).copied().flatten();
+        let a = activity_map.get(day.as_str()).copied().flatten();
+
+        if let Some(v) = s {
+            sleep_sum += v;
+            sleep_count += 1;
+        }
+        if let Some(v) = r {
+            readiness_sum += v;
+            readiness_count += 1;
+        }
+        if let Some(v) = a {
+            activity_sum += v;
+            activity_count += 1;
+        }
+
+        // Format date as "Mon Feb 10"
+        let label = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+            .map(|d| d.format("%a %b %d").to_string())
+            .unwrap_or_else(|_| day.clone());
+
+        let sc = s.map_or("  --".dimmed().to_string(), |v| format!("{:>4}", colored_score(v)));
+        let rc = r.map_or("  --".dimmed().to_string(), |v| format!("{:>4}", colored_score(v)));
+        let ac = a.map_or("  --".dimmed().to_string(), |v| format!("{:>4}", colored_score(v)));
+
+        println!("  {:<12}   {}      {}     {}", label, sc, rc, ac);
+    }
+
+    // Averages
+    let avg = |sum: i64, count: i64| -> String {
+        if count == 0 {
+            "  --".dimmed().to_string()
+        } else {
+            format!("{:>4}", colored_score(sum / count))
+        }
+    };
+
+    println!(
+        "  {:<12}   {}      {}     {}",
+        "Average".dimmed(),
+        avg(sleep_sum, sleep_count),
+        avg(readiness_sum, readiness_count),
+        avg(activity_sum, activity_count),
+    );
+}
+
 fn format_number(n: i64) -> String {
     if n >= 1000 {
         let whole = n / 1000;

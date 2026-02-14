@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::Local;
+use chrono::{Days, Local};
 use clap::{Parser, Subcommand};
 
 mod client;
@@ -49,6 +49,12 @@ enum Command {
     Stress {
         /// Date: YYYY-MM-DD, "today", or "yesterday"
         date: Option<String>,
+    },
+    /// Score trend over the last N days (default: 7)
+    Trend {
+        /// Number of days to show
+        #[arg(short, long, default_value = "7")]
+        days: u32,
     },
     /// Raw JSON from any endpoint (for piping)
     Json {
@@ -115,6 +121,28 @@ fn main() -> Result<()> {
             let d = resolve_date(date.as_deref());
             let data = client.daily_stress(&d)?;
             display::display_stress(data.first());
+        }
+        Command::Trend { days } => {
+            let today = Local::now().date_naive();
+            let start = today
+                .checked_sub_days(Days::new((days - 1) as u64))
+                .expect("date underflow");
+            let start_str = start.format("%Y-%m-%d").to_string();
+            let end_str = today.format("%Y-%m-%d").to_string();
+
+            let sleep = client.daily_sleep_range(&start_str, &end_str)?;
+            let readiness = client.daily_readiness_range(&start_str, &end_str)?;
+            let activity = client.daily_activity_range(&start_str, &end_str)?;
+
+            // Build list of all dates in range
+            let mut date_list = Vec::new();
+            let mut d = start;
+            while d <= today {
+                date_list.push(d.format("%Y-%m-%d").to_string());
+                d = d.succ_opt().expect("date overflow");
+            }
+
+            display::display_trend(&date_list, &sleep, &readiness, &activity);
         }
         Command::Json { endpoint, date } => {
             let d = resolve_date(date.as_deref());
