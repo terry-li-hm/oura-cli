@@ -8,6 +8,7 @@ repository = "https://github.com/terry-li-hm/oura-cli"
 homepage = "https://github.com/terry-li-hm/oura-cli"
 keywords = ["oura", "health", "sleep", "cli"]
 categories = ["command-line-utilities"]
+exclude = ["dist/", "oura_cli/", "pyproject.toml", "package.json", "rust-placeholder/"]
 
 [[bin]]
 name = "oura"
