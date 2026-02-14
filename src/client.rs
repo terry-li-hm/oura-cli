@@ -15,7 +15,10 @@ pub struct OuraClient {
 /// get the target date's data regardless.
 fn next_day(date: &str) -> Result<String> {
     let d = NaiveDate::parse_from_str(date, "%Y-%m-%d").context("Invalid date format")?;
-    Ok(d.succ_opt().expect("date overflow").format("%Y-%m-%d").to_string())
+    Ok(d.succ_opt()
+        .expect("date overflow")
+        .format("%Y-%m-%d")
+        .to_string())
 }
 
 impl OuraClient {

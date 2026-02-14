@@ -1,6 +1,6 @@
 use owo_colors::OwoColorize;
 
-use crate::models::{DailyActivity, DailyReadiness, DailyStress, Sleep};
+use crate::models::{DailyActivity, DailyReadiness, DailySleep, DailyStress, Sleep};
 
 pub fn colored_score(score: i64) -> String {
     if score >= 85 {
@@ -16,9 +16,9 @@ pub fn format_duration(seconds: i64) -> String {
     let hours = seconds / 3600;
     let mins = (seconds % 3600) / 60;
     if hours > 0 {
-        format!("{}h {:02}m", hours, mins)
+        format!("{hours}h {mins:02}m")
     } else {
-        format!("{}m", mins)
+        format!("{mins}m")
     }
 }
 
@@ -64,7 +64,11 @@ fn display_contributors(contributors: &serde_json::Value) {
     if let Some(obj) = contributors.as_object() {
         for (key, value) in obj {
             if let Some(score) = value.as_i64() {
-                println!("  {:<24}{}", format_contributor_key(key), colored_score(score));
+                println!(
+                    "  {:<24}{}",
+                    format_contributor_key(key),
+                    colored_score(score)
+                );
             }
         }
     }
@@ -72,73 +76,112 @@ fn display_contributors(contributors: &serde_json::Value) {
 
 // --- Command display functions ---
 
-pub fn display_scores(sleep: Option<i64>, readiness: Option<i64>, activity: Option<i64>) {
-    let s = sleep.map_or("--".dimmed().to_string(), colored_score);
-    let r = readiness.map_or("--".dimmed().to_string(), colored_score);
-    let a = activity.map_or("--".dimmed().to_string(), colored_score);
-    println!("  Sleep {}  Readiness {}  Activity {}", s, r, a);
+pub fn display_scores(
+    daily_sleep: Option<&DailySleep>,
+    daily_readiness: Option<&DailyReadiness>,
+    daily_activity: Option<&DailyActivity>,
+) {
+    let s = daily_sleep
+        .and_then(|d| d.score)
+        .map_or("--".dimmed().to_string(), colored_score);
+    let r = daily_readiness
+        .and_then(|d| d.score)
+        .map_or("--".dimmed().to_string(), colored_score);
+    let a = daily_activity
+        .and_then(|d| d.score)
+        .map_or("--".dimmed().to_string(), colored_score);
+    println!("  Sleep {s}  Readiness {r}  Activity {a}");
+
+    // Show readiness contributors (the most actionable breakdown)
+    if let Some(ref c) = daily_readiness.and_then(|d| d.contributors.clone()) {
+        println!();
+        println!("  {}", "Readiness contributors:".dimmed());
+        display_contributors(c);
+    }
+
+    // Show temperature deviation if notable
+    if let Some(temp) = daily_readiness.and_then(|d| d.temperature_deviation) {
+        if temp.abs() >= 0.5 {
+            println!("  Temp Deviation:  {temp:+.1}°C");
+        }
+    }
 }
 
-pub fn display_sleep(score: Option<i64>, records: &[Sleep]) {
+pub fn display_sleep(daily: Option<&DailySleep>, records: &[Sleep]) {
     let sleep = records
         .iter()
         .find(|s| s.sleep_type.as_deref() == Some("long_sleep"))
         .or(records.first());
 
-    let Some(s) = sleep else {
-        println!("  No sleep data");
-        return;
-    };
+    let score = daily.and_then(|d| d.score);
 
-    if let Some(v) = score {
-        println!("  Sleep Score: {}", colored_score(v));
-    }
+    match sleep {
+        Some(s) => {
+            if let Some(v) = score {
+                println!("  Sleep Score: {}", colored_score(v));
+            }
 
-    let total = s.total_sleep_duration.unwrap_or(0);
-    println!("  Total Sleep: {}", format_duration(total));
+            let total = s.total_sleep_duration.unwrap_or(0);
+            println!("  Total Sleep: {}", format_duration(total));
 
-    if let Some(eff) = s.efficiency {
-        println!("  Efficiency:  {}%", eff);
-    }
+            if let Some(eff) = s.efficiency {
+                println!("  Efficiency:  {eff}%");
+            }
 
-    if let Some(deep) = s.deep_sleep_duration {
-        println!(
-            "  Deep:        {} ({})",
-            format_duration(deep),
-            format_percent(deep, total)
-        );
-    }
-    if let Some(rem) = s.rem_sleep_duration {
-        println!(
-            "  REM:         {} ({})",
-            format_duration(rem),
-            format_percent(rem, total)
-        );
-    }
-    if let Some(light) = s.light_sleep_duration {
-        println!(
-            "  Light:       {} ({})",
-            format_duration(light),
-            format_percent(light, total)
-        );
-    }
+            if let Some(deep) = s.deep_sleep_duration {
+                println!(
+                    "  Deep:        {} ({})",
+                    format_duration(deep),
+                    format_percent(deep, total)
+                );
+            }
+            if let Some(rem) = s.rem_sleep_duration {
+                println!(
+                    "  REM:         {} ({})",
+                    format_duration(rem),
+                    format_percent(rem, total)
+                );
+            }
+            if let Some(light) = s.light_sleep_duration {
+                println!(
+                    "  Light:       {} ({})",
+                    format_duration(light),
+                    format_percent(light, total)
+                );
+            }
 
-    if let Some(hrv) = s.average_hrv {
-        println!("  Avg HRV:     {} ms", hrv);
-    }
-    if let Some(hr) = s.average_heart_rate {
-        println!("  Avg HR:      {} bpm", hr.round() as i64);
-    }
-    if let Some(low) = s.lowest_heart_rate {
-        println!("  Lowest HR:   {} bpm", low);
-    }
+            if let Some(hrv) = s.average_hrv {
+                println!("  Avg HRV:     {hrv} ms");
+            }
+            if let Some(hr) = s.average_heart_rate {
+                println!("  Avg HR:      {} bpm", hr.round() as i64);
+            }
+            if let Some(low) = s.lowest_heart_rate {
+                println!("  Lowest HR:   {low} bpm");
+            }
 
-    if let (Some(start), Some(end)) = (&s.bedtime_start, &s.bedtime_end) {
-        println!(
-            "  Bedtime:     {} → {}",
-            format_time(start),
-            format_time(end)
-        );
+            if let (Some(start), Some(end)) = (&s.bedtime_start, &s.bedtime_end) {
+                println!(
+                    "  Bedtime:     {} → {}",
+                    format_time(start),
+                    format_time(end)
+                );
+            }
+        }
+        None => {
+            // No period data yet — show score + contributors from daily_sleep
+            if let Some(d) = daily {
+                if let Some(v) = d.score {
+                    println!("  Sleep Score: {}", colored_score(v));
+                }
+                if let Some(ref c) = d.contributors {
+                    display_contributors(c);
+                }
+                println!("  {}", "(detailed breakdown not yet synced)".dimmed());
+            } else {
+                println!("  No sleep data");
+            }
+        }
     }
 }
 
@@ -153,7 +196,7 @@ pub fn display_readiness(record: Option<&DailyReadiness>) {
     }
 
     if let Some(temp) = r.temperature_deviation {
-        println!("  Temp Deviation:  {:+.1}°C", temp);
+        println!("  Temp Deviation:  {temp:+.1}°C");
     }
 
     if let Some(ref c) = r.contributors {
@@ -199,33 +242,45 @@ pub fn display_activity(record: Option<&DailyActivity>) {
     }
 }
 
-pub fn display_hrv(records: &[Sleep]) {
+pub fn display_hrv(daily: Option<&DailySleep>, records: &[Sleep]) {
     let sleep = records
         .iter()
         .find(|s| s.sleep_type.as_deref() == Some("long_sleep"))
         .or(records.first());
 
-    let Some(s) = sleep else {
-        println!("  No sleep data for HRV");
-        return;
-    };
+    match sleep {
+        Some(s) => {
+            println!("  {}", "HRV (from sleep)".dimmed());
 
-    println!("  {}", "HRV (from sleep)".dimmed());
+            if let Some(hrv) = s.average_hrv {
+                println!("  Avg HRV:     {hrv} ms");
+            } else {
+                println!("  Avg HRV:     --");
+            }
 
-    if let Some(hrv) = s.average_hrv {
-        println!("  Avg HRV:     {} ms", hrv);
-    } else {
-        println!("  Avg HRV:     --");
-    }
-
-    if let Some(hr) = s.average_heart_rate {
-        println!("  Avg HR:      {} bpm", hr.round() as i64);
-    }
-    if let Some(low) = s.lowest_heart_rate {
-        println!("  Lowest HR:   {} bpm", low);
-    }
-    if let Some(breath) = s.average_breath {
-        println!("  Avg Breath:  {:.1} rpm", breath);
+            if let Some(hr) = s.average_heart_rate {
+                println!("  Avg HR:      {} bpm", hr.round() as i64);
+            }
+            if let Some(low) = s.lowest_heart_rate {
+                println!("  Lowest HR:   {low} bpm");
+            }
+            if let Some(breath) = s.average_breath {
+                println!("  Avg Breath:  {breath:.1} rpm");
+            }
+        }
+        None => {
+            if let Some(d) = daily {
+                if let Some(v) = d.score {
+                    println!(
+                        "  Sleep Score: {} {}",
+                        colored_score(v),
+                        "(HRV requires detailed sync)".dimmed()
+                    );
+                }
+            } else {
+                println!("  No sleep data for HRV");
+            }
+        }
     }
 }
 
@@ -242,7 +297,7 @@ pub fn display_stress(record: Option<&DailyStress>) {
             "stressful" => summary.red().to_string(),
             _ => summary.clone(),
         };
-        println!("  Stress Summary: {}", colored);
+        println!("  Stress Summary: {colored}");
     }
 
     if let Some(stress) = s.stress_high {
@@ -263,14 +318,20 @@ pub fn display_trend(
 
     let sleep_map: HashMap<&str, Option<i64>> =
         sleep.iter().map(|s| (s.day.as_str(), s.score)).collect();
-    let readiness_map: HashMap<&str, Option<i64>> =
-        readiness.iter().map(|r| (r.day.as_str(), r.score)).collect();
+    let readiness_map: HashMap<&str, Option<i64>> = readiness
+        .iter()
+        .map(|r| (r.day.as_str(), r.score))
+        .collect();
     let activity_map: HashMap<&str, Option<i64>> =
         activity.iter().map(|a| (a.day.as_str(), a.score)).collect();
 
     println!(
         "  {}",
-        format!("{:<12}{:>7}{:>11}{:>10}", "Date", "Sleep", "Readiness", "Activity").dimmed()
+        format!(
+            "{:<12}{:>7}{:>11}{:>10}",
+            "Date", "Sleep", "Readiness", "Activity"
+        )
+        .dimmed()
     );
 
     let mut sleep_sum: i64 = 0;
@@ -303,11 +364,17 @@ pub fn display_trend(
             .map(|d| d.format("%a %b %d").to_string())
             .unwrap_or_else(|_| day.clone());
 
-        let sc = s.map_or("  --".dimmed().to_string(), |v| format!("{:>4}", colored_score(v)));
-        let rc = r.map_or("  --".dimmed().to_string(), |v| format!("{:>4}", colored_score(v)));
-        let ac = a.map_or("  --".dimmed().to_string(), |v| format!("{:>4}", colored_score(v)));
+        let sc = s.map_or("  --".dimmed().to_string(), |v| {
+            format!("{:>4}", colored_score(v))
+        });
+        let rc = r.map_or("  --".dimmed().to_string(), |v| {
+            format!("{:>4}", colored_score(v))
+        });
+        let ac = a.map_or("  --".dimmed().to_string(), |v| {
+            format!("{:>4}", colored_score(v))
+        });
 
-        println!("  {:<12}   {}      {}     {}", label, sc, rc, ac);
+        println!("  {label:<12}   {sc}      {rc}     {ac}");
     }
 
     // Averages
@@ -330,13 +397,7 @@ pub fn display_trend(
 
 fn format_number(n: i64) -> String {
     if n >= 1000 {
-        let whole = n / 1000;
-        let frac = (n % 1000) / 100;
-        if frac > 0 {
-            format!("{},{:03}", whole, n % 1000)
-        } else {
-            format!("{},{:03}", whole, n % 1000)
-        }
+        format!("{},{:03}", n / 1000, n % 1000)
     } else {
         n.to_string()
     }

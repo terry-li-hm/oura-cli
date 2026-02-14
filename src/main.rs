@@ -89,18 +89,13 @@ fn main() -> Result<()> {
             let sleep = client.daily_sleep(&d)?;
             let readiness = client.daily_readiness(&d)?;
             let activity = client.daily_activity(&d)?;
-            display::display_scores(
-                sleep.first().and_then(|s| s.score),
-                readiness.first().and_then(|r| r.score),
-                activity.first().and_then(|a| a.score),
-            );
+            display::display_scores(sleep.first(), readiness.first(), activity.first());
         }
         Command::Sleep { date } => {
             let d = resolve_date(date.as_deref());
             let sleep = client.sleep(&d)?;
             let daily = client.daily_sleep(&d)?;
-            let score = daily.first().and_then(|s| s.score);
-            display::display_sleep(score, &sleep);
+            display::display_sleep(daily.first(), &sleep);
         }
         Command::Readiness { date } => {
             let d = resolve_date(date.as_deref());
@@ -115,7 +110,8 @@ fn main() -> Result<()> {
         Command::Hrv { date } => {
             let d = resolve_date(date.as_deref());
             let sleep = client.sleep(&d)?;
-            display::display_hrv(&sleep);
+            let daily = client.daily_sleep(&d)?;
+            display::display_hrv(daily.first(), &sleep);
         }
         Command::Stress { date } => {
             let d = resolve_date(date.as_deref());
