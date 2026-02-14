@@ -1,6 +1,6 @@
 [package]
 name = "oura-cli"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Unofficial CLI for Oura Ring — sleep, readiness, and activity scores from your terminal."
 license = "MIT"
