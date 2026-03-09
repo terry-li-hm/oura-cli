@@ -185,6 +185,81 @@ pub fn display_sleep(daily: Option<&DailySleep>, records: &[Sleep]) {
     }
 }
 
+pub fn display_hypnogram(daily: Option<&DailySleep>, records: &[Sleep]) {
+    let sleep = records
+        .iter()
+        .find(|s| s.sleep_type.as_deref() == Some("long_sleep"))
+        .or(records.first());
+
+    let Some(s) = sleep else {
+        if let Some(d) = daily {
+            if let Some(v) = d.score {
+                println!("  Sleep Score: {}", colored_score(v));
+            }
+            println!("  {}", "(hypnogram not yet synced)".dimmed());
+        } else {
+            println!("  No sleep data");
+        }
+        return;
+    };
+
+    if let (Some(start), Some(end)) = (&s.bedtime_start, &s.bedtime_end) {
+        println!("  {} -> {}", format_time(start), format_time(end));
+    }
+
+    if let Some(v) = daily.and_then(|d| d.score) {
+        println!("  Sleep Score: {}", colored_score(v));
+    }
+
+    let Some(phases) = s.sleep_phase_5_min.as_deref() else {
+        println!("  {}", "(hypnogram not yet synced)".dimmed());
+        return;
+    };
+
+    if phases.is_empty() {
+        println!("  {}", "(hypnogram not yet synced)".dimmed());
+        return;
+    }
+
+    let step = if phases.chars().count() > 120 { 2 } else { 1 };
+
+    let mut bar = String::new();
+    let mut width = 0usize;
+    for (idx, phase) in phases.chars().enumerate() {
+        if idx % step != 0 {
+            continue;
+        }
+
+        let segment = match phase {
+            '1' => format!("{}", "█".blue()),
+            '2' => format!("{}", "█".green()),
+            '3' => format!("{}", "█".magenta()),
+            '4' => format!("{}", "█".yellow()),
+            '0' => format!("{}", "·".dimmed()),
+            _ => format!("{}", "·".dimmed()),
+        };
+        bar.push_str(&segment);
+        width += 1;
+    }
+
+    println!("  {bar}");
+
+    if let Some(start_hour) = hypnogram_start_hour(s.bedtime_start.as_deref()) {
+        let axis = build_hypnogram_axis(width, step, start_hour);
+        if !axis.trim().is_empty() {
+            println!("  {}", axis.dimmed());
+        }
+    }
+
+    println!(
+        "  {} Deep  {} Light  {} REM  {} Awake",
+        "■".blue(),
+        "■".green(),
+        "■".magenta(),
+        "■".yellow()
+    );
+}
+
 pub fn display_readiness(record: Option<&DailyReadiness>) {
     let Some(r) = record else {
         println!("  No readiness data");
@@ -401,4 +476,36 @@ fn format_number(n: i64) -> String {
     } else {
         n.to_string()
     }
+}
+
+fn hypnogram_start_hour(iso: Option<&str>) -> Option<u32> {
+    let iso = iso?;
+    let t = iso.find('T')?;
+    let rest = &iso[t + 1..];
+    let hour = rest.get(..2)?;
+    hour.parse().ok()
+}
+
+fn build_hypnogram_axis(width: usize, step: usize, start_hour: u32) -> String {
+    let hour_step = 12 / step;
+    if hour_step == 0 || width == 0 {
+        return String::new();
+    }
+
+    let mut axis = vec![' '; width];
+    let mut pos = 0usize;
+    let mut hour = start_hour;
+
+    while pos < width {
+        let label = format!("{hour:02}");
+        for (offset, ch) in label.chars().enumerate() {
+            if pos + offset < width {
+                axis[pos + offset] = ch;
+            }
+        }
+        pos += hour_step;
+        hour = (hour + 1) % 24;
+    }
+
+    axis.into_iter().collect()
 }

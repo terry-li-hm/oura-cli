@@ -44,6 +44,7 @@ pub struct Sleep {
     pub sleep_type: Option<String>,
     pub bedtime_start: Option<String>,
     pub bedtime_end: Option<String>,
+    pub sleep_phase_5_min: Option<String>,
     pub total_sleep_duration: Option<i64>,
     pub time_in_bed: Option<i64>,
     pub efficiency: Option<i64>,
