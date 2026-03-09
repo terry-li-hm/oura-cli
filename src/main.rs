@@ -30,6 +30,11 @@ enum Command {
         /// Date: YYYY-MM-DD, "today", or "yesterday"
         date: Option<String>,
     },
+    /// Actionable sleep analysis
+    Analyze {
+        /// Date: YYYY-MM-DD, "today", or "yesterday"
+        date: Option<String>,
+    },
     /// Sleep stage hypnogram (5-min intervals)
     Hypnogram {
         /// Date: YYYY-MM-DD, "today", or "yesterday"
@@ -101,6 +106,13 @@ fn main() -> Result<()> {
             let sleep = client.sleep(&d)?;
             let daily = client.daily_sleep(&d)?;
             display::display_sleep(daily.first(), &sleep);
+        }
+        Command::Analyze { date } => {
+            let d = resolve_date(date.as_deref());
+            let sleep = client.sleep(&d)?;
+            let daily_sleep = client.daily_sleep(&d)?;
+            let daily_readiness = client.daily_readiness(&d)?;
+            display::display_analyze(daily_sleep.first(), daily_readiness.first(), &sleep);
         }
         Command::Hypnogram { date } => {
             let d = resolve_date(date.as_deref());

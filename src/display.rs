@@ -1,6 +1,7 @@
 use owo_colors::OwoColorize;
 
 use crate::models::{DailyActivity, DailyReadiness, DailySleep, DailyStress, Sleep};
+use chrono::{DateTime, Duration, FixedOffset};
 
 pub fn colored_score(score: i64) -> String {
     if score >= 85 {
@@ -182,6 +183,111 @@ pub fn display_sleep(daily: Option<&DailySleep>, records: &[Sleep]) {
                 println!("  No sleep data");
             }
         }
+    }
+}
+
+pub fn display_analyze(
+    daily_sleep: Option<&DailySleep>,
+    daily_readiness: Option<&DailyReadiness>,
+    records: &[Sleep],
+) {
+    let sleep = records
+        .iter()
+        .find(|s| s.sleep_type.as_deref() == Some("long_sleep"))
+        .or(records.first());
+
+    let day = daily_sleep
+        .map(|d| d.day.as_str())
+        .or_else(|| daily_readiness.map(|r| r.day.as_str()))
+        .or_else(|| sleep.map(|s| s.day.as_str()))
+        .unwrap_or("--");
+
+    println!("  {}", format!("Analysis — {day}").dimmed());
+
+    let Some(s) = sleep else {
+        println!("  No sleep data");
+        return;
+    };
+
+    if let Some(score) = daily_sleep.and_then(|d| d.score) {
+        println!("  Sleep Score: {}", colored_score(score));
+    }
+
+    if let (Some(start), Some(end)) = (&s.bedtime_start, &s.bedtime_end) {
+        println!(
+            "  Bedtime:     {} → {}",
+            format_time(start),
+            format_time(end)
+        );
+    }
+
+    let mut found_issues = false;
+
+    let wake_runs = wake_episodes(s);
+    if !wake_runs.is_empty() {
+        found_issues = true;
+        for (time, minutes) in &wake_runs {
+            println!("  {}", format!("Woke at {time} for {minutes} min").yellow());
+        }
+
+        if let Some((time, minutes)) = wake_runs.iter().max_by_key(|(_, minutes)| *minutes) {
+            println!(
+                "  {}",
+                format!("Longest wake: {time} ({minutes} min)").yellow()
+            );
+        }
+    }
+
+    if let Some(deep) = s.deep_sleep_duration.filter(|deep| *deep < 3600) {
+        found_issues = true;
+        println!(
+            "  {}",
+            format!("Low deep sleep: {}", format_duration(deep)).red()
+        );
+    }
+    if let Some(rem) = s.rem_sleep_duration.filter(|rem| *rem < 3600) {
+        found_issues = true;
+        println!("  {}", format!("Low REM: {}", format_duration(rem)).red());
+    }
+    if let Some(efficiency) = s.efficiency.filter(|eff| *eff < 80) {
+        found_issues = true;
+        println!("  {}", format!("Low efficiency: {efficiency}%").red());
+    }
+    if let Some(restless) = s.restless_periods.filter(|periods| *periods > 20) {
+        found_issues = true;
+        println!(
+            "  {}",
+            format!("High restlessness: {restless} periods").red()
+        );
+    }
+
+    if let Some(temp) = daily_readiness.and_then(|r| r.temperature_deviation) {
+        if temp >= 0.5 {
+            found_issues = true;
+            println!(
+                "  {}",
+                format!("Temp elevated: {temp:+.1}°C — possible illness or stress").red()
+            );
+        } else if temp <= -0.5 {
+            found_issues = true;
+            println!("  {}", format!("Temp depressed: {temp:+.1}°C").red());
+        }
+    }
+
+    if let Some(delta) = s.sleep_score_delta {
+        if delta > 5 {
+            println!(
+                "  {}",
+                format!("Better than your baseline (+{delta} pts)").green()
+            );
+        } else if delta < -5 {
+            found_issues = true;
+            println!("  {}", format!("Below your baseline ({delta} pts)").red());
+        }
+    }
+
+    if !found_issues {
+        println!("  Sleep looks clean — no significant flags.");
     }
 }
 
@@ -476,6 +582,55 @@ fn format_number(n: i64) -> String {
     } else {
         n.to_string()
     }
+}
+
+fn wake_episodes(sleep: &Sleep) -> Vec<(String, i64)> {
+    let Some(phases) = sleep.sleep_phase_5_min.as_deref() else {
+        return Vec::new();
+    };
+    let Some(start) = parse_bedtime_start(sleep.bedtime_start.as_deref()) else {
+        return Vec::new();
+    };
+
+    let mut runs = Vec::new();
+    let mut run_start = None;
+
+    for (idx, phase) in phases.chars().enumerate() {
+        if phase == '4' {
+            run_start.get_or_insert(idx);
+            continue;
+        }
+
+        if let Some(start_idx) = run_start.take() {
+            let run_len = idx - start_idx;
+            if run_len >= 2 {
+                runs.push(format_wake_run(start, start_idx, run_len));
+            }
+        }
+    }
+
+    if let Some(start_idx) = run_start {
+        let run_len = phases.chars().count() - start_idx;
+        if run_len >= 2 {
+            runs.push(format_wake_run(start, start_idx, run_len));
+        }
+    }
+
+    runs
+}
+
+fn parse_bedtime_start(iso: Option<&str>) -> Option<DateTime<FixedOffset>> {
+    iso.and_then(|value| DateTime::parse_from_rfc3339(value).ok())
+}
+
+fn format_wake_run(
+    bedtime_start: DateTime<FixedOffset>,
+    start_idx: usize,
+    run_len: usize,
+) -> (String, i64) {
+    let wake_time = bedtime_start + Duration::minutes((start_idx as i64) * 5);
+    let minutes = (run_len as i64) * 5;
+    (wake_time.format("%H:%M").to_string(), minutes)
 }
 
 fn hypnogram_start_hour(iso: Option<&str>) -> Option<u32> {
