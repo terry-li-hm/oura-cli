@@ -1,0 +1,11 @@
+[env]
+DUCKDB_LIB_DIR = "/opt/homebrew/opt/duckdb/lib"
+DUCKDB_INCLUDE_DIR = "/opt/homebrew/opt/duckdb/include"
+
+[target.aarch64-apple-darwin]
+rustflags = [
+  "-L",
+  "/opt/homebrew/opt/duckdb/lib",
+  "-C",
+  "link-arg=-Wl,-rpath,/opt/homebrew/opt/duckdb/lib",
+]

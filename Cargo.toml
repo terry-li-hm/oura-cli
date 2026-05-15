@@ -18,6 +18,7 @@ path = "src/main.rs"
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
+duckdb = { version = "1", features = ["chrono"] }
 owo-colors = "4"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 serde = { version = "1", features = ["derive"] }
@@ -29,3 +30,5 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[workspace]

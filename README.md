@@ -18,11 +18,18 @@ oura readiness [DATE]         # readiness score + contributors
 oura activity [DATE]          # steps, calories, movement
 oura hrv [DATE]               # heart rate variability from sleep
 oura stress [DATE]            # daily stress summary
-oura trend [-d DAYS]          # score trend over last N days (default: 7)
+oura sync [DATE]              # sync one night's sleep into DuckDB
+oura weekly                   # this week versus 4-week average from DuckDB
+oura trend                    # 30-day readiness and bedtime trends from DuckDB
+oura event <DATE> <LABEL>     # compare the 7 days before and after an event
 oura json <ENDPOINT> [DATE]   # raw JSON for any API endpoint
 ```
 
 `DATE` accepts `YYYY-MM-DD`, `today`, or `yesterday`. Defaults to today.
+
+DuckDB-backed commands store data in `/Users/terry/oura-data/data/oura.duckdb`.
+Run `oura sync [DATE]` for each night you want to include before using
+`weekly`, `trend`, or `event`.
 
 ## Example
 

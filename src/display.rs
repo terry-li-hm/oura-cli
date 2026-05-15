@@ -101,10 +101,10 @@ pub fn display_scores(
     }
 
     // Show temperature deviation if notable
-    if let Some(temp) = daily_readiness.and_then(|d| d.temperature_deviation) {
-        if temp.abs() >= 0.5 {
-            println!("  Temp Deviation:  {temp:+.1}°C");
-        }
+    if let Some(temp) = daily_readiness.and_then(|d| d.temperature_deviation)
+        && temp.abs() >= 0.5
+    {
+        println!("  Temp Deviation:  {temp:+.1}°C");
     }
 }
 
@@ -489,6 +489,7 @@ pub fn display_stress(record: Option<&DailyStress>) {
     }
 }
 
+#[allow(dead_code)]
 pub fn display_trend(
     days: &[String],
     sleep: &[crate::models::DailySleep],

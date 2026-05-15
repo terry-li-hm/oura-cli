@@ -53,6 +53,7 @@ impl OuraClient {
         Ok(body.data)
     }
 
+    #[allow(dead_code)]
     fn fetch_range<T: DeserializeOwned>(
         &self,
         endpoint: &str,
@@ -99,14 +100,17 @@ impl OuraClient {
         self.fetch("daily_stress", date)
     }
 
+    #[allow(dead_code)]
     pub fn daily_sleep_range(&self, start: &str, end: &str) -> Result<Vec<DailySleep>> {
         self.fetch_range("daily_sleep", start, end)
     }
 
+    #[allow(dead_code)]
     pub fn daily_readiness_range(&self, start: &str, end: &str) -> Result<Vec<DailyReadiness>> {
         self.fetch_range("daily_readiness", start, end)
     }
 
+    #[allow(dead_code)]
     pub fn daily_activity_range(&self, start: &str, end: &str) -> Result<Vec<DailyActivity>> {
         self.fetch_range("daily_activity", start, end)
     }
